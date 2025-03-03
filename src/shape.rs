@@ -1071,6 +1071,7 @@ impl ShapeLine {
         wrap: Wrap,
         align: Option<Align>,
         match_mono_width: Option<f32>,
+        leading_space: f32,
     ) -> Vec<LayoutLine> {
         let mut lines = Vec::with_capacity(1);
         self.layout_to_buffer(
@@ -1081,6 +1082,7 @@ impl ShapeLine {
             align,
             &mut lines,
             match_mono_width,
+            leading_space,
         );
         lines
     }
@@ -1094,6 +1096,7 @@ impl ShapeLine {
         align: Option<Align>,
         layout_lines: &mut Vec<LayoutLine>,
         match_mono_width: Option<f32>,
+        leading_space: f32,
     ) {
         // For each visual line a list of  (span index,  and range of words in that span)
         // Note that a BiDi visual line could have multiple spans or parts of them
@@ -1159,7 +1162,7 @@ impl ShapeLine {
             }
         } else {
             for (span_index, span) in self.spans.iter().enumerate() {
-                let mut word_range_width = 0.;
+                let mut word_range_width = if span_index == 0 { leading_space } else { 0.0 };
                 let mut width_before_last_blank = 0.;
                 let mut number_of_blanks: u32 = 0;
 
@@ -1453,6 +1456,14 @@ impl ShapeLine {
         let number_of_visual_lines = visual_lines.len();
         for (index, visual_line) in visual_lines.iter().enumerate() {
             if visual_line.ranges.is_empty() {
+                layout_lines.push(LayoutLine {
+                    w: 0.0,
+                    max_ascent: 0.0,
+                    max_descent: 0.0,
+                    line_height_opt: self.metrics_opt.map(|x| x.line_height),
+                    glyphs: Default::default(),
+                    is_placeholder: true,
+                });
                 continue;
             }
             let new_order = self.reorder(&visual_line.ranges);
@@ -1460,6 +1471,9 @@ impl ShapeLine {
                 .pop()
                 .unwrap_or_else(|| Vec::with_capacity(1));
             let mut x = start_x;
+            if index == 0 {
+                x += leading_space;
+            }
             let mut y = 0.;
             let mut max_ascent: f32 = 0.;
             let mut max_descent: f32 = 0.;
@@ -1605,6 +1619,7 @@ impl ShapeLine {
                 max_descent,
                 line_height_opt,
                 glyphs,
+                is_placeholder: false,
             });
         }
 
@@ -1616,6 +1631,7 @@ impl ShapeLine {
                 max_descent: 0.0,
                 line_height_opt: self.metrics_opt.map(|x| x.line_height),
                 glyphs: Default::default(),
+                is_placeholder: false,
             });
         }
 

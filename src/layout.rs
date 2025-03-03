@@ -99,6 +99,9 @@ pub struct LayoutLine {
     pub line_height_opt: Option<f32>,
     /// Glyphs in line
     pub glyphs: Vec<LayoutGlyph>,
+    /// True if this line is empty as a result of the layout's leading space causing it to overflow
+    /// completely.
+    pub is_placeholder: bool,
 }
 
 /// Wrapping mode

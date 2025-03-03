@@ -139,6 +139,9 @@ impl<'b> Iterator for LayoutRunIter<'b> {
                 if line_y < 0.0 {
                     continue;
                 }
+                if layout_line.is_placeholder {
+                    continue;
+                }
 
                 return Some(LayoutRun {
                     line_i: self.line_i,
@@ -214,6 +217,7 @@ pub struct Buffer {
     wrap: Wrap,
     monospace_width: Option<f32>,
     tab_width: u16,
+    leading_space: f32,
 }
 
 impl Clone for Buffer {
@@ -228,6 +232,7 @@ impl Clone for Buffer {
             wrap: self.wrap,
             monospace_width: self.monospace_width,
             tab_width: self.tab_width,
+            leading_space: self.leading_space,
         }
     }
 }
@@ -256,6 +261,7 @@ impl Buffer {
             wrap: Wrap::WordOrGlyph,
             monospace_width: None,
             tab_width: 8,
+            leading_space: 0.0,
         }
     }
 
@@ -285,7 +291,7 @@ impl Buffer {
         #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         let instant = std::time::Instant::now();
 
-        for line in &mut self.lines {
+        for (line_i, line) in self.lines.iter_mut().enumerate() {
             if line.shape_opt().is_some() {
                 line.reset_layout();
                 line.layout(
@@ -295,6 +301,7 @@ impl Buffer {
                     self.wrap,
                     self.monospace_width,
                     self.tab_width,
+                    if line_i == 0 { self.leading_space } else { 0.0 },
                 );
             }
         }
@@ -542,6 +549,7 @@ impl Buffer {
             self.wrap,
             self.monospace_width,
             self.tab_width,
+            if line_i == 0 { self.leading_space } else { 0.0 },
         ))
     }
 
@@ -611,6 +619,20 @@ impl Buffer {
                 }
             }
             self.redraw = true;
+            self.shape_until_scroll(font_system, false);
+        }
+    }
+
+    pub fn leading_space(&self) -> f32 {
+        self.leading_space
+    }
+
+    pub fn set_leading_space(&mut self, font_system: &mut FontSystem, leading_space: f32) {
+        if self.leading_space != leading_space {
+            self.leading_space = leading_space;
+
+            self.redraw = true;
+            self.relayout(font_system);
             self.shape_until_scroll(font_system, false);
         }
     }
@@ -1425,6 +1447,11 @@ impl BorrowedWithFontSystem<'_, Buffer> {
     /// Set tab width (number of spaces between tab stops)
     pub fn set_tab_width(&mut self, tab_width: u16) {
         self.inner.set_tab_width(self.font_system, tab_width);
+    }
+
+    pub fn set_leading_space(&mut self, leading_space: f32) {
+        self.inner
+            .set_leading_space(self.font_system, leading_space);
     }
 
     /// Set text of buffer, using provided attributes for each line by default
